@@ -1,6 +1,10 @@
 #!/bin/bash
 
 DIALOG=${DIALOG=dialog}
+VERSION=''
+MAJOR=''
+MINOR=''
+BUILD=''
 
 # Проверка архитектуры и назначение целевой директории CryptoPRO
 _check_arch () {
@@ -11,6 +15,19 @@ _check_arch () {
   else
     target_dir='ia32'
   fi
+}
+
+# Получение версии CryptoPRO
+_get_cpro_version () {
+  cspline=`/opt/cprocsp/bin/${target_dir}/csptest -enum -info | egrep -i 'csp'`
+  for i in $cspline; do
+    if [[ $i =~ .*Ver.* ]]; then
+      VERSION=${i/Ver:/}
+      MAJOR=`echo $VERSION | tr '.' ' ' | awk '{print $1}'`
+      MINOR=`echo $VERSION | tr '.' ' ' | awk '{print $2}'`
+      BUILD=`echo $VERSION | tr '.' ' ' | awk '{print $3}'`
+    fi
+  done
 }
 
 # Обнуление переменных
@@ -156,9 +173,16 @@ _copy_key () {
       inputtext=$keyname'_local'
 
       keynamenew=$($DIALOG --stdout --clear --cancel-label "Отмена" --title "Введите новое имя ключа" --inputbox "Имя ключа: $keyname" 8 50 "$inputtext")
+      srcparam='-contsrc'
+      destparam='-contdest'
+
+      if [[ ( "$MAJOR" < 4 ) ]]; then
+        srcparam='-src'
+        destparam='-dest'
+      fi
 
       if [ "x$keynamenew" != 'x' ]; then
-        /opt/cprocsp/bin/${target_dir}/csptest -keycopy -contsrc "$key" -contdest "$dest\\$keynamenew"
+        /opt/cprocsp/bin/${target_dir}/csptest -keycopy $srcparam "$key" $destparam "$dest\\$keynamenew"
       fi
 
       _copy_key
@@ -226,4 +250,5 @@ _check_choise () {
 }
 
 _check_arch
+_get_cpro_version
 _show_main_dialog
