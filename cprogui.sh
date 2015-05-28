@@ -1,6 +1,10 @@
 #!/bin/bash
 
-DIALOG=${DIALOG=dialog}
+if [[ $1 == 'debug' ]]; then
+  DIALOG=${DIALOG=dialog --trace debug.log}
+else
+  DIALOG=${DIALOG=dialog}
+fi
 VERSION=''
 MAJOR=''
 MINOR=''
@@ -42,7 +46,12 @@ _reset () {
   rootname=''
   keyroot=''
   curpath=$HOME
-  rm _keys.tmp _dest.tmp
+  if [ -f _keys.tmp ]; then
+    rm _keys.tmp
+  fi
+  if [ -f _dest.tmp ]; then
+    rm _dest.tmp
+  fi
 }
 
 # Прорисовка строки
