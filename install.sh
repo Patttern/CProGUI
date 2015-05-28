@@ -281,6 +281,7 @@ _install_esmart () {
 # Завершение работы
 _exit () {
   _line
+  echo 'CProGUI <https://github.com/Patttern/CProGUI>'
   echo 'Егор Бабенко <patttern@gmail.com>'
   echo 'Выход.'
   exit 0

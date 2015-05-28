@@ -12,7 +12,6 @@ BUILD=''
 
 # Проверка архитектуры и назначение целевой директории CryptoPRO
 _check_arch () {
-  to_dialog=`which $DIALOG`
   arch=`uname -m`
   if [ $arch = 'x86_64' ]; then
     target_dir='amd64'
@@ -21,7 +20,16 @@ _check_arch () {
   fi
 }
 
-# Получение версии CryptoPRO
+# Проверка доступа из-под суперпользователя
+_check_root () {
+  if [ "$(id -u)" != "0" ]; then
+    sudo_match='sudo '
+  else
+    sudo_match=''
+  fi
+}
+
+# Получение установленной версии CryptoPRO
 _get_cpro_version () {
   cspline=`/opt/cprocsp/bin/${target_dir}/csptest -enum -info | egrep -i 'csp'`
   for i in $cspline; do
@@ -63,6 +71,7 @@ _line () {
 # Завершение работы
 _exit () {
   _line
+  echo 'CProGUI <https://github.com/Patttern/CProGUI>'
   echo 'Егор Бабенко <patttern@gmail.com>'
   echo 'Выход.'
   exit 0
@@ -78,12 +87,12 @@ _show_main_dialog () {
           --menu "Программа консольного управления CryptoPRO.\n\n\
   Выберите действие:" 17 60 7 \
   1  "Список подключенных ключевых носителей" \
-  2  "Список доступных ключей сертификатов" \
+  2  "Список доступных контейнеров" \
   3  "Установка корневого сертификата" \
-  4  "Копирование ключей между хранилищами" \
-  5  "Установка ключа сертификата" \
+  4  "Копирование контейнеров между хранилищами" \
+  5  "Установка сертификата контейнера" \
   6  "Проверка работы контейнера по закрытому ключу" \
-  7  "Удаление ключа сертификата" 2> $tempfile
+  7  "Удаление сертификата" 2> $tempfile
 
   retval=$?
 
@@ -100,16 +109,14 @@ _show_main_dialog () {
 # Список подключенных ключевых носителей
 _list_flash () {
   list=`/opt/cprocsp/bin/${target_dir}/list_pcsc | sed 's/\([a-z :]*\)//'`
-  $DIALOG --clear --title "Список подключенных ключевых носителей" \
-    --msgbox "${list}" 10 52
+  $DIALOG --clear --title "Список подключенных ключевых носителей" --msgbox "${list}" 10 52
   _show_main_dialog
 }
 
-# Список доступных ключей сертификатов
+# Список доступных контейнеров
 _list_keys () {
   list=`/opt/cprocsp/bin/${target_dir}/csptest -keyset -enum_cont -fqcn -verifyc | grep '\\\\'`
-  $DIALOG --clear --title "Список доступных ключей сертификатов" \
-    --msgbox "$list" 30 60
+  $DIALOG --clear --title "Список доступных контейнеров" --msgbox "$list" 30 60
   _show_main_dialog
 }
 
@@ -118,7 +125,8 @@ _get_file () {
   if [ -d $curpath ]; then
     curpath=`readlink -f $curpath`"/"
   fi
-  curpath=$($DIALOG --stdout --cancel-label "Отмена" --title "Выберите файл корневого сертификата" --fselect $curpath 14 80)
+  curpath=$($DIALOG --stdout --cancel-label "Отмена" --title "Выберите файл корневого сертификата" \
+    --fselect $curpath 14 80)
   if [ ! -f $curpath ]; then
     _get_file
   fi
@@ -131,13 +139,13 @@ _inst_root () {
   if [ "x$curpath" != 'x' ]; then
     rootname=$(basename $curpath)
     keyroot=/var/opt/cprocsp/keys/root/$rootname
-    sudo cp $curpath $keyroot
-    sudo /opt/cprocsp/bin/${target_dir}/certmgr -inst -store root -file $keyroot
+    ${sudo_match}cp $curpath $keyroot
+    ${sudo_match}/opt/cprocsp/bin/${target_dir}/certmgr -inst -store root -file $keyroot
   fi
   _show_main_dialog
 }
 
-# Выбор ключа
+# Выбор контейнера
 _select_key () {
   list=()
   /opt/cprocsp/bin/${target_dir}/csptest -keyset -enum_cont -fqcn -verifyc \
@@ -146,11 +154,11 @@ _select_key () {
 
   if [ $keysize -gt 0 ]; then
     while read LINE; do list+=("$LINE" v); done < _keys.tmp
-    key=$($DIALOG --stdout --clear --cancel-label "Отмена" --title 'Список доступных ключей' \
-      --menu 'Выберите копируемый ключ' 17 60 9 "${list[@]}")
+    key=$($DIALOG --stdout --clear --cancel-label "Отмена" --title 'Список доступных контейнеров' \
+      --menu 'Выберите копируемый контейнер' 17 60 9 "${list[@]}")
   else
-    $DIALOG --clear --title "Ошибка получения списка ключей" \
-      --msgbox "\nНе найдено ни одного ключа сертификатов на ключевых носителях." 8 40
+    $DIALOG --clear --title "Ошибка получения списка контейнеров" \
+      --msgbox "\nНе найдено ни одного контейнера в хранилищах." 8 50
     _show_main_dialog
   fi
 }
@@ -165,7 +173,7 @@ _select_dest () {
       --menu 'Выберите место назначения' 17 60 9 "${destlist[@]}")
 }
 
-# Копирование ключей между хранилищами
+# Копирование контейнеров между хранилищами
 _copy_key () {
   _select_key
 
@@ -181,10 +189,11 @@ _copy_key () {
       keyname=$(basename "$key_alt")
       inputtext=$keyname'_local'
 
-      keynamenew=$($DIALOG --stdout --clear --cancel-label "Отмена" --title "Введите новое имя ключа" --inputbox "Имя ключа: $keyname" 8 50 "$inputtext")
+      keynamenew=$($DIALOG --stdout --clear --cancel-label "Отмена" --title "Введите новое имя контейнера" \
+        --inputbox "Имя контейнера: $keyname" 8 50 "$inputtext")
+
       srcparam='-contsrc'
       destparam='-contdest'
-
       if [[ ( "$MAJOR" < 4 ) ]]; then
         srcparam='-src'
         destparam='-dest'
@@ -199,7 +208,7 @@ _copy_key () {
   fi
 }
 
-# Установка ключа сертификата
+# Установка сертификата контейнера
 _inst_cert () {
   _select_key
 
@@ -220,7 +229,9 @@ _check_key () {
   if [ "x$key" = 'x' ]; then
     _show_main_dialog
   else
-    keynamenew=$($DIALOG --stdout --clear --cancel-label "Отмена" --title "Введите новое имя ключа" --insecure --passwordbox "Введите пароль для ключа $keyname" 8 50 "")
+    keynamenew=$($DIALOG --stdout --clear --cancel-label "Отмена" --title "Пароль к контейнеру" \
+      --insecure --passwordbox \
+      "Введите пароль к контейнеру $keyname.\nЕсли контейнер не имеет пароля, оставьте поле пустым." 10 50 "")
 
     if [ "x$keynamenew" != 'x' ]; then
       list=`/opt/cprocsp/bin/${target_dir}/csptestf -keys -cont "$key" -check -pass $keynamenew`
@@ -232,10 +243,10 @@ _check_key () {
   fi
 }
 
-# Удаление ключа сертификата
+# Удаление сертификата
 _del_cert () {
   $DIALOG --clear --title "В разработке" \
-    --msgbox "\nУдаление ключа сертификата находится на стадии разработки." 8 40
+    --msgbox "\nУдаление сертификата находится на стадии разработки." 8 40
   _show_main_dialog
 }
 
@@ -260,5 +271,12 @@ _check_choise () {
 }
 
 _check_arch
+_check_root
 _get_cpro_version
-_show_main_dialog
+if [ "x$VERSION" = 'x' ]; then
+  $DIALOG --ok-label "Выход" --title "Не найдена установленная CryptoPRO" --msgbox \
+    "\nДля корректной работы данной программы, требуется установить CryptoPRO." 8 60
+  _exit
+else
+  _show_main_dialog
+fi
