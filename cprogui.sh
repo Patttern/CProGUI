@@ -215,9 +215,10 @@ _check_key () {
 
     if [ "x$keynamenew" != 'x' ]; then
       list=`/opt/cprocsp/bin/${target_dir}/csptestf -keys -cont "$key" -check -pass $keynamenew`
-      $DIALOG --title "Проверка работы контейнера" \
-        --msgbox "${list}" 30 60
+    else
+      list=`/opt/cprocsp/bin/${target_dir}/csptestf -keys -cont "$key" -check`
     fi
+    $DIALOG --title "Проверка работы контейнера" --msgbox "${list}" 30 60
     _check_key
   fi
 }
