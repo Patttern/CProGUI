@@ -305,23 +305,29 @@ _test_exec () {
   echo 'Тестирование завершено.'
   echo 'Если в ходе тестирования вы увидели подключенный ключевой носитель, а так же список ключей раположенных на нем, значит программа успешно установлена.'
   echo 'В ином случае "Ой, что-то пошло не так... :(".'
-  _exit
+  echo -n 'Для продолжения нажмите "Enter" ...'
+
+  read anykey
+  echo 'OK'
 }
 
 # Команды тестирования
 _test () {
-  $DIALOG --yes-label "Да" --no-label "Выход" \
+  $DIALOG --yes-label "Да" --no-label "Отмена" \
     --title "Тестирование CryptoPro ${version}" --yesno "\\n
 Перед продолжением тестирования, вставьте ключевой носитель с сертификатом в \
 USB-разъем.\\nЕсли вы не желаете производить тестирование или у вас нет ключевого \
 носителя, нажмите <Выход>.\\n\\nПродолжить?" 15 60
   case "$?" in
     '0')
-    _test_exec ;;
+      _test_exec
+      ;;
     '1')
-    _exit ;;
+      _show_menu
+      ;;
     '-1')
-    _exit ;;
+      _show_menu
+      ;;
   esac
 }
 
@@ -394,7 +400,9 @@ _check_choise () {
       _show_menu
       ;;
     2)
-      _check_install_cmd ;;
+      _check_install_cmd
+      _show_menu
+      ;;
     3)
       _cryptopro_install_cmd
       _show_menu
@@ -449,9 +457,11 @@ _show_menu () {
 
   case $retval in
     0)
-      _check_choise ;;
+      _check_choise
+      ;;
     1)
-      _exit ;;
+      _exit
+      ;;
   esac
 }
 
@@ -464,11 +474,14 @@ _start () {
 суперпользователя.\\n\\nПродолжить?" 15 60
   case "$?" in
     '0')
-    _show_menu ;;
+      _show_menu
+      ;;
     '1')
-    _exit ;;
+      _exit
+      ;;
     '-1')
-    _exit ;;
+      _exit
+      ;;
   esac
 }
 
