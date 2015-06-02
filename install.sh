@@ -1,8 +1,12 @@
 #!/bin/bash
 
 DIALOG=${DIALOG=dialog}
-isLinux=0
-OSFAMILY=''
+isLinux=1
+OSFAMILY='debian'
+PACKAGEMANAGER='apt-get'
+REMOVECMD='-y purge'
+LIBDIR='/usr/lib'
+LIB32DIR='/usr/lib32'
 version='4.0.0-4'
 
 # Прорисовка строки
@@ -34,15 +38,30 @@ _check_os () {
     ubuntu )
        isLinux=1
        OSFAMILY='debian'
+       PACKAGEMANAGER='apt-get'
+       REMOVECMD='-y purge'
        ;;
     redhat | \
     centos )
        isLinux=1
        OSFAMILY='redhat'
+       PACKAGEMANAGER='yum'
+       REMOVECMD='-y erase'
        ;;
   esac
   echo 'OS:' $OS
   echo 'Семейство:' $OSFAMILY
+
+  if [ "$OSFAMILY" = 'redhat' ]; then
+    if [ "$ARCH" = 'x86_64' ]; then
+      LIBDIR='/usr/lib64'
+      LIB32DIR='/usr/lib'
+    else
+      # TODO
+      LIBDIR='/usr/lib'
+      LIB32DIR='/usr/lib'
+    fi
+  fi
 }
 
 # Проверка доступа из-под суперпользователя
@@ -58,7 +77,7 @@ _check_root () {
 _preinstall () {
   _check_os
   _check_root
-  ${sudo_match}apt-get install dialog
+  ${sudo_match}${PACKAGEMANAGER} install dialog
 }
 
 # Удаление ESMART
@@ -70,8 +89,8 @@ _remove_esmart () {
   # драйвер
   debdrv='libesmart1'
 
-  # установка драйвера
-  ${sudo_match}apt-get purge $debdrv
+  # удаление драйвера
+  ${sudo_match}${PACKAGEMANAGER} ${REMOVECMD} $debdrv
   ${sudo_match}service pcscd restart
 
   _line
@@ -85,27 +104,19 @@ _remove_plugins () {
   _line
 
   mozilla_libs_founded=no
-  if [ -e /usr/lib/mozilla ]; then
-    mozilla_libs=/usr/lib/mozilla
+  if [ -e ${LIBDIR}/mozilla ]; then
+    mozilla_libs=${LIBDIR}/mozilla
     mozilla_libs_founded=yes
-  elif [ -e /usr/lib32/mozilla ]; then
-    mozilla_libs=/usr/lib32/mozilla
+  elif [ -e ${LIB32DIR}/mozilla ]; then
+    mozilla_libs=${LIB32DIR}/mozilla
     mozilla_libs_founded=yes
   fi
   if [ "$mozilla_libs_founded" = 'yes' ]; then
     ${sudo_match}rm ${mozilla_libs}/plugins/libnpcades.so*
+    # обновление списка библиотек
+    ${sudo_match}/sbin/ldconfig
+    ${sudo_match}/sbin/ldconfig -p
   fi
-
-  ${sudo_match}rm /usr/lib/librdrrtsupcp.so
-  ${sudo_match}rm /usr/lib/libnpcades.so*
-  if [ "$ARCH" = 'x86_64' ]; then
-    ${sudo_match}rm /usr/lib32/librdrrtsupcp.so
-    ${sudo_match}rm /usr/lib32/libnpcades.so*
-  fi
-
-  # обновление списка библиотек
-  ${sudo_match}/sbin/ldconfig
-  ${sudo_match}/sbin/ldconfig -p
 
   _line
   echo 'Удаление Browser Plugins завершено.'
@@ -161,13 +172,15 @@ lsb-cprocsp-rdr-64
 lsb-cprocsp-base'
 
   for i in $upacks; do
-    ${sudo_match}apt-get -y purge $i
+    ${sudo_match}${PACKAGEMANAGER} ${REMOVECMD} $i
   done
 
-  # зачистка репозитария
-  ${sudo_match}apt-get -f install
-  ${sudo_match}apt-get clean
-  ${sudo_match}apt-get autoremove
+  if [ "$OSFAMILY" = 'debian' ]; then
+    # зачистка репозитария
+    ${sudo_match}${PACKAGEMANAGER} -f install
+    ${sudo_match}${PACKAGEMANAGER} clean
+    ${sudo_match}${PACKAGEMANAGER} autoremove
+  fi
 
   _line
   echo 'Удаление CryptoPRO завершено.'
@@ -199,9 +212,13 @@ _install_cryptopro () {
   echo 'Установка требуемых пакетов...'
   _line
 
-  ${sudo_match}apt-get install lsb-base lsb-core alien libmotif4 libpcsclite1 pcscd
-  if [ "$OS" = 'debian' ]; then
-    ${sudo_match}apt-get install libcanberra-gtk3*
+  if [ "$OSFAMILY" = 'redhat' ]; then
+    ${sudo_match}${PACKAGEMANAGER} install redhat-lsb pcsc-lite
+  else
+    ${sudo_match}${PACKAGEMANAGER} install lsb-base lsb-core alien libmotif4 libpcsclite1 pcscd
+    if [ "$OS" = 'debian' ]; then
+      ${sudo_match}${PACKAGEMANAGER} install libcanberra-gtk3*
+    fi
   fi
 
   _line
@@ -239,7 +256,11 @@ cprocsp-npcades-64'
   # установка
   eval $( echo packages='$'ipack_${arch_dir} )
   for i in $packages; do
-    ${sudo_match}alien -kci ${arch_dir}/cprocsp/${i}-${version}.${arch_dir}.rpm
+    if [ "$OSFAMILY" = 'redhat' ]; then
+      ${sudo_match}rpm -ivh ${arch_dir}/cprocsp/${i}-${version}.${arch_dir}.rpm
+    else
+      ${sudo_match}alien -kci ${arch_dir}/cprocsp/${i}-${version}.${arch_dir}.rpm
+    fi
   done
 
   # post install
@@ -265,11 +286,11 @@ _install_plugins () {
   _line
 
   mozilla_libs_founded=no
-  if [ -e /usr/lib/mozilla ]; then
-    mozilla_libs=/usr/lib/mozilla
+  if [ -e ${LIBDIR}/mozilla ]; then
+    mozilla_libs=${LIBDIR}/mozilla
     mozilla_libs_founded=yes
-  elif [ -e /usr/lib32/mozilla ]; then
-    mozilla_libs=/usr/lib32/mozilla
+  elif [ -e ${LIB32DIR}/mozilla ]; then
+    mozilla_libs=${LIB32DIR}/mozilla
     mozilla_libs_founded=yes
   fi
   if [ "$mozilla_libs_founded" = 'yes' ]; then
@@ -295,7 +316,11 @@ _install_esmart () {
   debdrv='libesmart1_1.4.10-1.1'
 
   # установка драйвера
-  ${sudo_match}dpkg -i ${arch_dir}/esmart/${debdrv}.${arch_dir}.deb
+  if [ "$OSFAMILY" = 'redhat' ]; then
+    ${sudo_match}rpm -ivh ${arch_dir}/esmart/${debdrv}.${arch_dir}.rpm
+  else
+    ${sudo_match}dpkg -i ${arch_dir}/esmart/${debdrv}.${arch_dir}.deb
+  fi
   ${sudo_match}service pcscd restart
 
   _line
@@ -511,3 +536,4 @@ _start () {
 
 _preinstall
 _start
+
