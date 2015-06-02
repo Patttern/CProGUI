@@ -219,12 +219,12 @@ cprocsp-npcades-64'
   done
 
   # post install
-  ${sudo_match}/opt/cprocsp/sbin/${arch_dir}/cpconfig -loglevel ocsp -mask 0xF
-  ${sudo_match}/opt/cprocsp/sbin/${arch_dir}/cpconfig -loglevel ocsp_fmt -mask 0x39
-  ${sudo_match}/opt/cprocsp/sbin/${arch_dir}/cpconfig -loglevel tsp -mask 0xF
-  ${sudo_match}/opt/cprocsp/sbin/${arch_dir}/cpconfig -loglevel tsp_fmt -mask 0x39
-  ${sudo_match}/opt/cprocsp/sbin/${arch_dir}/cpconfig -loglevel cades -mask 0xF
-  ${sudo_match}/opt/cprocsp/sbin/${arch_dir}/cpconfig -loglevel cades_fmt -mask 0x39
+  ${sudo_match}/opt/cprocsp/sbin/${target_dir}/cpconfig -loglevel ocsp -mask 0xF
+  ${sudo_match}/opt/cprocsp/sbin/${target_dir}/cpconfig -loglevel ocsp_fmt -mask 0x39
+  ${sudo_match}/opt/cprocsp/sbin/${target_dir}/cpconfig -loglevel tsp -mask 0xF
+  ${sudo_match}/opt/cprocsp/sbin/${target_dir}/cpconfig -loglevel tsp_fmt -mask 0x39
+  ${sudo_match}/opt/cprocsp/sbin/${target_dir}/cpconfig -loglevel cades -mask 0xF
+  ${sudo_match}/opt/cprocsp/sbin/${target_dir}/cpconfig -loglevel cades_fmt -mask 0x39
 
   # restart services
   ${sudo_match}service pcscd restart
