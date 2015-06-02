@@ -13,6 +13,8 @@ _check_arch () {
   _line
   echo -n 'Проверка архитектуры операционной системы ... '
   arch=`uname -m`
+  os=`uname -v`
+  isDebian=0
   if [ $arch = 'x86_64' ]; then
     arch_dir='x86_64'
     target_dir='amd64'
@@ -33,10 +35,19 @@ _check_root () {
   fi
 }
 
+# is OS Debian?
+_check_debian () {
+  check_os=`echo $os | grep -i 'debian'`
+  if [ "x$check_os" != 'x' ]; then
+    isDebian=1
+  fi
+}
+
 # Предварительная проверка
 _preinstall () {
   _check_arch
   _check_root
+  _check_debian
   ${sudo_match}apt-get install dialog
 }
 
@@ -179,6 +190,9 @@ _install_cryptopro () {
   _line
 
   ${sudo_match}apt-get install lsb-base lsb-core alien libmotif4 libpcsclite1 pcscd
+  if [ "$isDebian" = 1 ]; then
+    ${sudo_match}apt-get install libcanberra-gtk3*
+  fi
 
   _line
   echo 'Установка программ CryptoPro...'
