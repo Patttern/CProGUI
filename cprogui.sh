@@ -245,6 +245,9 @@ _check_key () {
 
 # Удаление сертификата
 _del_cert () {
+  #/opt/cprocsp/bin/${target_dir}/certmgr -list -v
+  #/opt/cprocsp/bin/${target_dir}/certmgr -delete
+  #TODO: ???
   $DIALOG --clear --title "В разработке" \
     --msgbox "\nУдаление сертификата находится на стадии разработки." 8 40
   _show_main_dialog
